@@ -1,6 +1,8 @@
+use chrono::offset::local::Local;
+
 use std::io::{Read, Write};
-use std::net::TcpListener;
-use std::fs::File;
+use std::net::{TcpListener, Shutdown};
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct Server {
@@ -19,15 +21,36 @@ impl Server {
             match stream {
                 Ok(mut stream) => {
                     println!("[SERVER]: Recieve connection from client. {:?}", stream);
-                    let mut recieve_file = File::create("recieve_server.txt").unwrap();
-                    let mut recieve_buffer = Vec::new();
-                    stream.read_to_end(&mut recieve_buffer).unwrap();
-                    recieve_file.write_all(&recieve_buffer).unwrap();
+                    stream
+                        .set_read_timeout(Some(Duration::from_millis(1)))
+                        .expect("setting timeout is failed.");
 
-                    let mut send_file = File::open("send_server.txt").unwrap();
-                    let mut send_buffer = Vec::new();
-                    send_file.read_to_end(&mut send_buffer).unwrap();
-                    stream.write_all(&send_buffer).unwrap();
+                    let mut recieve_buffer = String::new();
+                    match stream.read_to_string(&mut recieve_buffer) {
+                        Ok(s) => println!("SUCCESS: {}", s),
+                        Err(e) => println!("FAIL: {}", e),
+                    };
+                    stream.shutdown(Shutdown::Read).expect("read stream shut down fail.");
+                    // println!("{}", recieve_buffer); // TODO: リクエストからパスを引き出す
+
+                    let send_buffer = [
+                        format!("HTTP/1.1 200 OK"),
+                        format!("Date:  {}", Local::now()),
+                        format!("Server: Modoki/0.1"),
+                        format!("Connection: close"),
+                        format!("Content-type: text/html"),
+                        format!(""),
+                        format!(r#"
+                            <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+                            <html><head>
+                            <title>OK</title>
+                            </head><body>
+                            <h1>It works!</h1>
+                            </body></html>
+                        "#),
+                    ].join("\r\n");
+
+                    stream.write_all(send_buffer.as_bytes()).unwrap();
                     println!("[SERVER]: Send message to client.");
                 }
                 Err(e) => {
