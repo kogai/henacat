@@ -1,5 +1,5 @@
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::fs::File;
 
 #[derive(Debug)]
@@ -7,11 +7,9 @@ pub struct Client<'a> {
     host: &'a str,
 }
 
-impl <'a> Client <'a> {
+impl<'a> Client<'a> {
     pub fn new(host: &'a str) -> Self {
-        Client {
-            host: host,
-        }
+        Client { host: host }
     }
 
     pub fn send(&self) {
@@ -25,12 +23,7 @@ impl <'a> Client <'a> {
         let mut recieve_file = File::create("recieve_client.txt").unwrap();
         let mut recieve_buffer = Vec::new();
         connection.read_to_end(&mut recieve_buffer).unwrap();
-        let result_read = recieve_file.write_all(&recieve_buffer);
-        // recieve_file.write_all(&recieve_buffer).unwrap();
-        match result_read {
-            Ok(x) => println!("{:?}", x),
-            Err(e) => println!("{:?}", e),
-        }
+        recieve_file.write_all(&recieve_buffer).unwrap();
         println!("[CLIENT]: Recieve message from server.");
     }
 }
