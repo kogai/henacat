@@ -54,8 +54,14 @@ fn extract_head(stream: &TcpStream) -> String {
     recieve_buffer
 }
 
-fn extract_resource(headers: String) -> String {
-    unimplemented!();
+fn extract_resource(h: String) -> String {
+    let mut headers = h.lines();
+    let mut request_line = headers.nth(0).unwrap().split(" ");
+    let _method = request_line.next().unwrap();
+    let request_uri = request_line.next().unwrap();
+    let _protcol = request_line.next().unwrap();
+
+    request_uri.to_string()
 }
 
 fn create_response() -> String {
@@ -86,10 +92,8 @@ mod tests {
 
     #[test]
     fn it_should_extract_resource() {
-        let resource = extract_resource(r#"
-            GET /favicon.ico HTTP/1.1
-            Host: localhost:8000
-        "#.to_string());
+        let resource = extract_resource(r#"GET /favicon.ico HTTP/1.1
+            Host: localhost:8000"#.to_string());
         assert_eq!(resource, "/favicon.ico".to_string());
     }
 }
