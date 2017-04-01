@@ -12,25 +12,23 @@ impl Server {
         Server { listener: TcpListener::bind(host).unwrap() }
     }
 
-    pub fn listen<C>(&self, on_connect: C)
-        where C: Fn(&TcpStream) -> ()
-    {
+    pub fn listen(&mut self) {
         println!("Waiting for connection from client...");
+
         for stream in self.listener.incoming() {
             match stream {
                 Ok(mut stream) => {
-                    println!("Accept connection from client.");
-                    let mut recieve_file = File::create("server_recieve.txt").unwrap();
+                    println!("[SERVER]: Recieve connection from client. {:?}", stream);
+                    let mut recieve_file = File::create("recieve_server.txt").unwrap();
                     let mut recieve_buffer = Vec::new();
                     stream.read_to_end(&mut recieve_buffer).unwrap();
-                    recieve_file.write(&recieve_buffer).unwrap();
-
-                    let mut send_file = File::open("server_send.txt").unwrap();
-                    let mut send_buffer = Vec::new();
-                    send_file.read_to_end(&mut send_buffer).unwrap();
-                    stream.write(&send_buffer).unwrap();
-
-                    on_connect(&stream);
+                    recieve_file.write_all(&recieve_buffer).unwrap();
+            
+                    // let mut send_file = File::open("send_server.txt").unwrap();
+                    // let mut send_buffer = Vec::new();
+                    // send_file.read_to_end(&mut send_buffer).unwrap();
+                    // stream.write_all(&send_buffer).unwrap();
+                    println!("[SERVER]: Send message to client.");
                 }
                 Err(e) => {
                     println!("{:?}", e);
@@ -41,7 +39,29 @@ impl Server {
 }
 
 #[derive(Debug)]
-pub struct Client {}
+pub struct Client {
+  connection: TcpStream,
+}
 
-impl Client {}
+impl Client {
+    pub fn new(host: &str) -> Self {
+        Client {
+            connection: TcpStream::connect(host).unwrap(),
+        }
+    }
+
+    pub fn send(&mut self) {
+        println!("[CLIENT]: Send message to server.");
+        let mut send_file = File::open("send_client.txt").unwrap();
+        let mut send_buffer = Vec::new();
+        send_file.read_to_end(&mut send_buffer).unwrap();
+        self.connection.write_all(&send_buffer).unwrap();
+
+        // let mut recieve_file = File::create("recieve_client.txt").unwrap();
+        // let mut recieve_buffer = Vec::new();
+        // self.connection.read_to_end(&mut recieve_buffer).unwrap();
+        // recieve_file.write_all(&recieve_buffer).unwrap();
+        println!("[CLIENT]: Recieve message from server.");
+    }
+}
 
