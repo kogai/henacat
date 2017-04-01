@@ -25,7 +25,12 @@ impl <'a> Client <'a> {
         let mut recieve_file = File::create("recieve_client.txt").unwrap();
         let mut recieve_buffer = Vec::new();
         connection.read_to_end(&mut recieve_buffer).unwrap();
-        recieve_file.write_all(&recieve_buffer).unwrap();
+        let result_read = recieve_file.write_all(&recieve_buffer);
+        // recieve_file.write_all(&recieve_buffer).unwrap();
+        match result_read {
+            Ok(x) => println!("{:?}", x),
+            Err(e) => println!("{:?}", e),
+        }
         println!("[CLIENT]: Recieve message from server.");
     }
 }

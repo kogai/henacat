@@ -1,4 +1,4 @@
 [root]
-name = "tcp-server"
+name = "henacat"
 version = "0.1.0"
 
