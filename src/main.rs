@@ -1,7 +1,7 @@
 extern crate chrono;
 
 mod server;
-mod client;
+// mod client;
 
 fn main() {
     // let s = "\r\n".as_bytes();
