@@ -54,14 +54,70 @@ fn extract_head(stream: &TcpStream) -> String {
     recieve_buffer
 }
 
-fn extract_resource(h: String) -> String {
+#[derive(Debug, PartialEq)]
+pub enum Method {
+    OPTIONS,
+    HEAD,
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    TRACE,
+    CONNECT,
+}
+
+impl Method {
+    pub fn from_string(x: &str) -> Self {
+        match x {
+            "OPTIONS" => Method::OPTIONS,
+            "HEAD" => Method::HEAD,
+            "GET" => Method::GET,
+            "POST" => Method::POST,
+            "PUT" => Method::PUT,
+            "DELETE" => Method::DELETE,
+            "TRACE" => Method::TRACE,
+            "CONNECT" => Method::CONNECT,
+            _ => Method::GET,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Protcol {
+    HTTP_1,
+    HTTP_1_1,
+    HTTP_2,
+}
+
+impl Protcol {
+    pub fn from_string(x: &str) -> Self {
+        match x {
+            "HTTP/1" => Protcol::HTTP_1,
+            "HTTP/1.1" => Protcol::HTTP_1_1,
+            _ => Protcol::HTTP_2,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Headers {
+    method: Method,
+    protcol: Protcol,
+    uri: String,
+}
+
+fn extract_resource(h: String) -> Headers {
     let mut headers = h.lines();
     let mut request_line = headers.nth(0).unwrap().split(" ");
-    let _method = request_line.next().unwrap();
+    let method = request_line.next().unwrap();
     let request_uri = request_line.next().unwrap();
-    let _protcol = request_line.next().unwrap();
+    let protcol = request_line.next().unwrap();
 
-    request_uri.to_string()
+    Headers {
+        method: Method::from_string(method),
+        uri: request_uri.to_string(),
+        protcol: Protcol::from_string(protcol),
+    }
 }
 
 fn create_response() -> String {
@@ -94,6 +150,8 @@ mod tests {
     fn it_should_extract_resource() {
         let resource = extract_resource(r#"GET /favicon.ico HTTP/1.1
             Host: localhost:8000"#.to_string());
-        assert_eq!(resource, "/favicon.ico".to_string());
+        assert_eq!(resource.method, Method::GET);
+        assert_eq!(resource.uri, "/favicon.ico".to_string());
+        assert_eq!(resource.protcol, Protcol::HTTP_1_1);
     }
 }
