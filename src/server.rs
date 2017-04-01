@@ -1,6 +1,6 @@
 use chrono::offset::local::Local;
 
-use std::io::{Read, Write};
+use std::io::{Read, Write, BufReader, BufRead};
 use std::net::{TcpListener, Shutdown};
 use std::time::Duration;
 
@@ -21,17 +21,25 @@ impl Server {
             match stream {
                 Ok(mut stream) => {
                     println!("[SERVER]: Recieve connection from client. {:?}", stream);
-                    stream
-                        .set_read_timeout(Some(Duration::from_millis(1)))
-                        .expect("setting timeout is failed.");
-
+                    let mut buffered_stream = BufReader::new(stream.try_clone().unwrap());
                     let mut recieve_buffer = String::new();
-                    match stream.read_to_string(&mut recieve_buffer) {
-                        Ok(s) => println!("SUCCESS: {}", s),
-                        Err(e) => println!("FAIL: {}", e),
-                    };
-                    stream.shutdown(Shutdown::Read).expect("read stream shut down fail.");
-                    // println!("{}", recieve_buffer); // TODO: リクエストからパスを引き出す
+
+                    loop {
+                        match buffered_stream.read_line(&mut recieve_buffer) {
+                            Ok(s) => {
+                                if s == 2 {
+                                    // Request header is end.
+                                    break;
+                                }
+                                println!("read size is: {}", s);
+                            },
+                            Err(e) => {
+                                println!("FAIL: {}", e);
+                                break;
+                            },
+                        };
+                    }
+                    println!("{}", recieve_buffer); // TODO: リクエストからパスを引き出す
 
                     let send_buffer = [
                         format!("HTTP/1.1 200 OK"),
