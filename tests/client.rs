@@ -12,7 +12,13 @@ impl<'a> Client<'a> {
     }
 
     pub fn send(&self) -> String {
-        let mut connection = TcpStream::connect(self.host).unwrap();
+        let mut connection = match TcpStream::connect(self.host) {
+            Ok(x) => x,
+            Err(e) => {
+                println!("{}", e);
+                return format!("{}", e);
+            },
+        };
 
         let headers = "GET /index.html HTTP/1.1\r\n
             Host: localhost:8000\r\n
