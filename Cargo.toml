@@ -5,3 +5,11 @@ authors = ["小飼慎一 <kogai0121@gmail.com>"]
 
 [dependencies]
 chrono = "0.3"
+
+[lib]
+name = "henacat"
+path = "src/lib.rs"
+
+[[bin]]
+name = "henacat-bin"
+path = "src/main.rs"
