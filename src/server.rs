@@ -143,17 +143,16 @@ impl Method {
 
 #[derive(Debug, PartialEq)]
 pub enum Protcol {
-    HTTP_1,
-    HTTP_1_1,
-    HTTP_2,
+    HTTP1,
+    HTTP2,
 }
 
 impl Protcol {
     pub fn from_string(x: &str) -> Self {
         match x {
-            "HTTP/1" => Protcol::HTTP_1,
-            "HTTP/1.1" => Protcol::HTTP_1_1,
-            _ => Protcol::HTTP_2,
+            "HTTP/1" => Protcol::HTTP1,
+            "HTTP/1.1" => Protcol::HTTP1,
+            _ => Protcol::HTTP2,
         }
     }
 }
@@ -198,7 +197,7 @@ mod tests {
             Host: localhost:8000"#.to_string());
         assert_eq!(resource.method, Method::GET);
         assert_eq!(resource.uri, "/favicon.ico".to_string());
-        assert_eq!(resource.protcol, Protcol::HTTP_1_1);
+        assert_eq!(resource.protcol, Protcol::HTTP1);
     }
 
     #[test]
