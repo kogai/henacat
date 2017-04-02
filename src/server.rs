@@ -23,8 +23,8 @@ impl Server {
                     spawn(move || {
                         println!("[SERVER]: Recieve connection from client. {:?}", stream);
                         let request_headers = extract_head(&stream);
-                        let response = create_response();
-                        println!("{}", request_headers); // TODO: リクエストからパスを引き出す
+                        let response = create_response(&request_headers);
+                        println!("{:?}", request_headers); // TODO: リクエストからパスを引き出す
                         stream.write_all(response.as_bytes()).unwrap();
                     });
                 }
@@ -34,7 +34,7 @@ impl Server {
     }
 }
 
-fn extract_head(stream: &TcpStream) -> String {
+fn extract_head(stream: &TcpStream) -> Headers {
     let mut buffered_stream = BufReader::new(stream);
     let mut recieve_buffer = String::new();
 
@@ -51,7 +51,66 @@ fn extract_head(stream: &TcpStream) -> String {
             },
         };
     }
-    recieve_buffer
+    extract_headers(recieve_buffer)
+}
+
+fn extract_headers(h: String) -> Headers {
+    let mut headers = h.lines();
+    let mut request_line = headers.nth(0).unwrap().split(" ");
+    let method = request_line.next().unwrap();
+    let request_uri = request_line.next().unwrap();
+    let protcol = request_line.next().unwrap();
+
+    Headers {
+        method: Method::from_string(method),
+        uri: request_uri.to_string(),
+        protcol: Protcol::from_string(protcol),
+        content_type: ContentType::from_path(request_uri),
+    }
+}
+
+#[derive(Debug)]
+enum ContentType {
+    TextHtml,
+    TextCss,
+    TextPlain,
+    ImageJpg,
+    ImagePng,
+    ImageGif,
+    ApplicationOctetStream,
+}
+
+impl ContentType {
+    fn from_path(x: &str) -> Self {
+        let extension = x.split(".").nth(1).unwrap_or("html").to_string();
+        ContentType::from_string(extension)
+    }
+
+    fn from_string(x: String) -> Self {
+        match x.as_str() {
+            "html" | "htm" => ContentType::TextHtml,
+            "css" => ContentType::TextCss,
+            "jpg" | "jpeg" => ContentType::ImageJpg,
+            "png" => ContentType::ImagePng,
+            "gif" => ContentType::ImageGif,
+            "txt" => ContentType::TextPlain,
+            _ => ContentType::ApplicationOctetStream,
+        }
+    }
+
+    fn to_string(&self) -> String {
+        let content_type = match self {
+            &ContentType::TextHtml => "text/html",
+            &ContentType::TextCss => "text/css",
+            &ContentType::TextPlain => "text/plain",
+            &ContentType::ImageJpg => "image/jpeg",
+            &ContentType::ImagePng => "image/png",
+            &ContentType::ImageGif => "image/gif",
+            _ => "application/octet-stream",
+        };
+
+        format!("Content-type: {}", content_type)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -104,29 +163,16 @@ pub struct Headers {
     method: Method,
     protcol: Protcol,
     uri: String,
+    content_type: ContentType,
 }
 
-fn extract_resource(h: String) -> Headers {
-    let mut headers = h.lines();
-    let mut request_line = headers.nth(0).unwrap().split(" ");
-    let method = request_line.next().unwrap();
-    let request_uri = request_line.next().unwrap();
-    let protcol = request_line.next().unwrap();
-
-    Headers {
-        method: Method::from_string(method),
-        uri: request_uri.to_string(),
-        protcol: Protcol::from_string(protcol),
-    }
-}
-
-fn create_response() -> String {
+fn create_response(request_header: &Headers) -> String {
     let send_buffer = [
         format!("HTTP/1.1 200 OK"),
         format!("Date:  {}", Local::now()),
         format!("Server: Modoki/0.1"),
         format!("Connection: close"),
-        format!("Content-type: text/html"),
+        format!("{}", request_header.content_type.to_string()),
         format!(""),
         format!(r#"
             <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
@@ -147,11 +193,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_should_extract_resource() {
-        let resource = extract_resource(r#"GET /favicon.ico HTTP/1.1
+    fn it_should_extract_headers() {
+        let resource = extract_headers(r#"GET /favicon.ico HTTP/1.1
             Host: localhost:8000"#.to_string());
         assert_eq!(resource.method, Method::GET);
         assert_eq!(resource.uri, "/favicon.ico".to_string());
         assert_eq!(resource.protcol, Protcol::HTTP_1_1);
+    }
+
+    #[test]
+    fn it_should_extract_content_type() {
+        assert_eq!(ContentType::from_path("/test.png").to_string(), "Content-type: image/png");
+        assert_eq!(ContentType::from_path("/test.jpg").to_string(), "Content-type: image/jpeg");
+        assert_eq!(ContentType::from_path("/").to_string(), "Content-type: text/html");
     }
 }
