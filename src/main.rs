@@ -1,6 +1,9 @@
 extern crate chrono;
 
 mod server;
+mod method;
+mod content_type;
+mod status;
 // mod client;
 
 fn main() {

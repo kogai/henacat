@@ -1,8 +1,15 @@
 use chrono::offset::local::Local;
 
-use std::io::{Write, BufReader, BufRead};
+use std::io::{Write, Read, BufReader, BufRead};
 use std::net::{TcpListener, TcpStream};
 use std::thread::spawn;
+use std::fs::File;
+
+use content_type::ContentType;
+use method::Method;
+use status::HttpStatus;
+
+static ROOT_DIR: &str = "httpdocs";
 
 #[derive(Debug)]
 pub struct Server {
@@ -24,8 +31,7 @@ impl Server {
                         println!("[SERVER]: Recieve connection from client. {:?}", stream);
                         let request_headers = extract_head(&stream);
                         let response = create_response(&request_headers);
-                        println!("{:?}", request_headers); // TODO: リクエストからパスを引き出す
-                        stream.write_all(response.as_bytes()).unwrap();
+                        stream.write_all(response.as_slice()).unwrap();
                     });
                 }
                 Err(e) => println!("{:?}", e)
@@ -69,78 +75,6 @@ fn extract_headers(h: String) -> Headers {
     }
 }
 
-#[derive(Debug)]
-enum ContentType {
-    TextHtml,
-    TextCss,
-    TextPlain,
-    ImageJpg,
-    ImagePng,
-    ImageGif,
-    ApplicationOctetStream,
-}
-
-impl ContentType {
-    fn from_path(x: &str) -> Self {
-        let extension = x.split(".").nth(1).unwrap_or("html").to_string();
-        ContentType::from_string(extension)
-    }
-
-    fn from_string(x: String) -> Self {
-        match x.as_str() {
-            "html" | "htm" => ContentType::TextHtml,
-            "css" => ContentType::TextCss,
-            "jpg" | "jpeg" => ContentType::ImageJpg,
-            "png" => ContentType::ImagePng,
-            "gif" => ContentType::ImageGif,
-            "txt" => ContentType::TextPlain,
-            _ => ContentType::ApplicationOctetStream,
-        }
-    }
-
-    fn to_string(&self) -> String {
-        let content_type = match self {
-            &ContentType::TextHtml => "text/html",
-            &ContentType::TextCss => "text/css",
-            &ContentType::TextPlain => "text/plain",
-            &ContentType::ImageJpg => "image/jpeg",
-            &ContentType::ImagePng => "image/png",
-            &ContentType::ImageGif => "image/gif",
-            _ => "application/octet-stream",
-        };
-
-        format!("Content-type: {}", content_type)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Method {
-    OPTIONS,
-    HEAD,
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    TRACE,
-    CONNECT,
-}
-
-impl Method {
-    pub fn from_string(x: &str) -> Self {
-        match x {
-            "OPTIONS" => Method::OPTIONS,
-            "HEAD" => Method::HEAD,
-            "GET" => Method::GET,
-            "POST" => Method::POST,
-            "PUT" => Method::PUT,
-            "DELETE" => Method::DELETE,
-            "TRACE" => Method::TRACE,
-            "CONNECT" => Method::CONNECT,
-            _ => Method::GET,
-        }
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub enum Protcol {
     HTTP1,
@@ -165,25 +99,34 @@ pub struct Headers {
     content_type: ContentType,
 }
 
-fn create_response(request_header: &Headers) -> String {
-    let send_buffer = [
-        format!("HTTP/1.1 200 OK"),
+fn create_response(request_header: &Headers) -> Vec<u8> {
+    let file = File::open(format!("{}{}", ROOT_DIR, &request_header.uri));
+    let (mut body, status) = match file {
+        Ok(mut f) => {
+            let mut buffer = Vec::new();
+            f.read_to_end(&mut buffer).unwrap();
+            (buffer, HttpStatus::from_usize(200))
+        },
+        Err(e) => {
+            println!("{}", e);
+            let mut f = File::open(format!("{}{}", ROOT_DIR, "/404.html")).unwrap();
+            let mut buffer = Vec::new();
+            f.read_to_end(&mut buffer).unwrap();
+            (buffer, HttpStatus::from_usize(404))
+        },
+    };
+
+    let mut send_buffer = [
+        format!("HTTP/1.1 {}", status.to_string()),
         format!("Date:  {}", Local::now()),
         format!("Server: Modoki/0.1"),
         format!("Connection: close"),
         format!("{}", request_header.content_type.to_string()),
         format!(""),
-        format!(r#"
-            <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-            <html><head>
-            <title>OK</title>
-            <link rel="stylesheet" type="text/css" href="/style.css">
-            </head><body>
-            <h1>It works!</h1>
-            </body></html>
-        "#),
-    ].join("\r\n");
+        format!(""),
+    ].join("\r\n").as_bytes().to_vec();
 
+    send_buffer.append(&mut body);
     send_buffer
 }
 
@@ -193,17 +136,10 @@ mod tests {
 
     #[test]
     fn it_should_extract_headers() {
-        let resource = extract_headers(r#"GET /favicon.ico HTTP/1.1
+        let resource = extract_headers(r#"GET /index.html HTTP/1.1
             Host: localhost:8000"#.to_string());
         assert_eq!(resource.method, Method::GET);
-        assert_eq!(resource.uri, "/favicon.ico".to_string());
+        assert_eq!(resource.uri, "/index.html".to_string());
         assert_eq!(resource.protcol, Protcol::HTTP1);
-    }
-
-    #[test]
-    fn it_should_extract_content_type() {
-        assert_eq!(ContentType::from_path("/test.png").to_string(), "Content-type: image/png");
-        assert_eq!(ContentType::from_path("/test.jpg").to_string(), "Content-type: image/jpeg");
-        assert_eq!(ContentType::from_path("/").to_string(), "Content-type: text/html");
     }
 }
