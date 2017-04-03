@@ -6,6 +6,7 @@ use henacat::server;
 use std::thread::spawn;
 
 #[test]
+#[ignore]
 fn e2e_should_get_response() {
     spawn(|| {
         let mut server = server::Server::new("127.0.0.1:8000");
